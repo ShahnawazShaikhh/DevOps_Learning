@@ -4,3 +4,109 @@ A runner is a machine that runs the jobs in a GitHub Actions workflow. There are
 
 GitHub-hosted runners: GitHub provides the virtual machines, and these runners are managed by GitHub.
 Self-hosted runners: These are machines that you manage and host yourself. They can run on any environment (e.g., local server, cloud VM).
+**********************************************************************************************************************************************************************************************************************************************
+How can you reuse workflows in GitHub Actions?
+Answer:
+Workflow reuse is done by calling another workflow within your main workflow using the workflow_call trigger. This allows you to avoid duplicating logic across multiple workflow files. Example:
+jobs:
+  call-another-workflow:
+    uses: ./.github/workflows/deploy.yml
+    with:
+      parameter: value
+**********************************************************************************************************************************************************************************************************************************************
+How do you set environment variables in GitHub Actions?
+Answer:
+You can set environment variables globally at the workflow level, for a specific job, or within a specific step.
+jobs:
+  example-job:
+    runs-on: ubuntu-latest
+    env:
+      GLOBAL_VAR: 'Hello'
+    steps:
+      - name: Print environment variable
+        run: echo $GLOBAL_VAR
+
+**********************************************************************************************************************************************************************************************************************************************
+How do you use secrets in GitHub Actions?
+Answer:
+Secrets are used to store sensitive information (like API keys, passwords) securely. They can be added in the repository settings and accessed in workflows as environment variables. For example:
+
+steps:
+  - name: Access secret
+    run: echo ${{ secrets.MY_SECRET }}
+**********************************************************************************************************************************************************************************************************************************************
+What is the uses keyword in GitHub Actions?
+Answer:
+The uses keyword is used to reference GitHub Actions in a workflow. It can point to:
+
+A public action from GitHub Marketplace, like actions/checkout@v2.
+An action from your own repository, like ./path/to/action.
+A Docker container or a local action.
+**********************************************************************************************************************************************************************************************************************************************
+How do you trigger workflows in GitHub Actions?
+Answer:
+Workflows can be triggered by various events, such as push, pull_request, schedule, workflow_dispatch, etc. Example:
+ 
+on:
+  push:
+    branches:
+      - main
+**********************************************************************************************************************************************************************************************************************************************
+Can you share data between jobs in a GitHub Actions workflow?
+Answer:
+Yes, you can share data between jobs using artifacts or the workflow_run event. Artifacts are files that are persisted after one job and downloaded in another job.
+
+steps:
+  - name: Save artifact
+    uses: actions/upload-artifact@v2
+    with:
+      name: output-file
+      path: ./path/to/file
+
+steps:
+  - name: Download artifact
+    uses: actions/download-artifact@v2
+    with:
+      name: output-file
+
+**********************************************************************************************************************************************************************************************************************************************
+What are matrix builds in GitHub Actions?
+Answer:
+Matrix builds allow you to run jobs across multiple configurations (e.g., multiple versions of a language, operating systems). This helps test your application in different environments.
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [10.x, 12.x, 14.x]
+    steps:
+      - uses: actions/setup-node@v2
+        with:
+          node-version: ${{ matrix.node-version }}
+
+
+**********************************************************************************************************************************************************************************************************************************************
+What is a composite action in GitHub Actions?
+Answer:
+Composite actions allow you to group multiple steps together into a reusable action, making your workflows more modular and reusable across repositories.
+**********************************************************************************************************************************************************************************************************************************************
+How do you handle failed jobs in GitHub Actions?
+Answer:
+GitHub Actions allows handling failed jobs using if conditionals or by marking steps as continue-on-error. You can also use the needs keyword to specify job dependencies.
+
+if: failure()
+continue-on-error: true
+
+**********************************************************************************************************************************************************************************************************************************************
+
+How do you cache dependencies in GitHub Actions?
+Answer:
+GitHub Actions supports caching to save time on repeated tasks, like downloading dependencies. You can use the actions/cache action:
+
+- name: Cache dependencies
+  uses: actions/cache@v2
+  with:
+    path: node_modules
+    key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
+
