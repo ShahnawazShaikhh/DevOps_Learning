@@ -1,6 +1,0 @@
-What are runners in GitHub Actions?
-Answer:
-A runner is a machine that runs the jobs in a GitHub Actions workflow. There are two types of runners:
-
-GitHub-hosted runners: GitHub provides the virtual machines, and these runners are managed by GitHub.
-Self-hosted runners: These are machines that you manage and host yourself. They can run on any environment (e.g., local server, cloud VM).
