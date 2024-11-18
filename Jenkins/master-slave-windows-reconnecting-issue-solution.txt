@@ -1,0 +1,105 @@
+
+
+
+CONFIGURE MATSER-SLAVE CONFIGURATION IN JENKINS ON WINDOWS TO SOLVE RECONNECTING ISSUE
+
+         1.HERE WE HAVE CHANGE THE VM NETWORK DRIVER FROM NAT TO BRIDGE
+		 2.IP OF BOTH THE MACHINE SHOULD BE 192.168.133.XX
+
+ENABLE MASTER-SLAVE COMMUNICATION ON JENKINS MASTER
+
+	1.Log in to the Jenkins dashboard on the master node.
+
+	2.Navigate to Manage Jenkins > Manage Nodes and Clouds > New Node.
+
+	3.Enter a name for the slave (e.g., Windows-Slave) and select Permanent Agent.
+
+Configure the node:
+
+     Remote root directory: Provide a directory on the slave machine for Jenkins files (e.g., C:\jenkins-slave).
+     Labels: Add relevant labels (e.g., windows).
+	 connect it using controller
+     Usage: Choose Use this node as much as possible.
+     Save the configuration.
+	 
+	 
+ENABLE THE "TCP AGENT LISTENER" ON THE MASTER
+
+	Go to Manage Jenkins > Configure Global Security.
+	Under Agent Protocols, ensure that "TCP inbound agent" is enabled.
+	Save the configuration.
+	Verify the TCP Port for Inbound Agents
+	In Manage Jenkins > Configure Global Security, locate the TCP port for inbound agents.
+	If it's set to a fixed port (e.g., 50000), ensure that port is open and accessible from the slave machine.
+	If it’s set to random, change it to a fixed port (e.g., 50000) for easier configuration.
+	 
+	 
+DOWNLOAD THE AGENT JAR FILE
+
+	1.Go to Manage Jenkins > Manage Nodes and Clouds.
+	2.Click on the newly created slave node and select Launch agent.
+	3.Download the agent.jar file from the given link.
+	4.Transfer this file to the slave system (e.g., via USB, LAN, or any method that doesn't require internet access).
+
+
+CONFIGURE THE SLAVE MACHINE
+	1.Copy the agent.jar file to the designated Jenkins slave directory (e.g., C:\jenkins-slave).
+	2.Open a Command Prompt on the slave system.
+	3.Run the following command to connect the slave to the master:
+	
+	  java -jar agent.jar -url http://192.168.133.84:8090 -name slave-node -secret 4465686d5a680a589b2c694dc5edc4df40815352ecde4b24fa3341b5fc342d31 -workDir "C:\Jenkins_Agent\Agent" -tunnel 192.168.133.84:50000
+
+   
+   
+   
+	Replace:
+
+	<master-ip>	: IP address or hostname of the Jenkins master.
+	<port>		: Jenkins HTTP port (default is 8080).
+	<slave-name>: Name of the slave node.
+	<secret-key>: Available on the Jenkins slave node page under Launch agent.
+	<-tunnel> 	: The -tunnel option explicitly tells the agent to use the fixed TCP port (in this case, 50000).
+	
+	
+SOLVE THE RECONNECTING ISSUE:
+
+ STEPS TO RUN JENKINS AGENT AS A SERVICE ON WINDOWS
+
+	Download the winsw Executable:
+
+	Download WinSW (Windows Service Wrapper) to create a Windows service for the agent. https://github.com/winsw/winsw/releases
+	
+	Place the winsw.exe file in the same directory as your agent.jar (e.g., C:\Jenkins_Agent\Agent).
+	
+	Create a Configuration File for WinSW:
+
+		Create an XML configuration file (e.g., winsw.xml) in the same directory with the following content:
+		xml
+		<service>
+		  <id>JenkinsAgent</id>
+		  <name>Jenkins Agent</name>
+		  <description>This service runs the Jenkins agent for the slave node.</description>
+		  <executable>java</executable>
+		  <arguments>-jar agent.jar -url http://192.168.133.84:8090 -name slave-node -secret 4465686d5a680a589b2c694dc5edc4df40815352ecde4b24fa3341b5fc342d31 -workDir "C:\Jenkins_Agent\Agent" -tunnel 192.168.133.84:50000</arguments>
+		  <logpath>C:\Jenkins_Agent\Agent\logs</logpath>
+		</service>
+		
+INSTALL THE SERVICE:
+
+	Open a new Administrator PowerShell or Command Prompt.
+	Navigate to the agent directory (C:\Jenkins_Agent\Agent).
+	
+	Run the following command to install the service:
+	winsw.exe install
+	
+	Start the service by running:
+    winsw.exe start
+	
+	Verify the Service:
+	Check the Windows Services (services.msc) for Jenkins Agent. The service should be running.
+
+	The agent should now appear as Online in Jenkins master.
+	Advantages of Running as a Service
+	The agent runs in the background without needing an active PowerShell session.
+	It restarts automatically if the system reboots.
+	Logs are managed in the specified logpath directory.
