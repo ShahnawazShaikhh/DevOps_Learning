@@ -1,0 +1,14 @@
+# Use .NET 8 runtime (ASP.NET if it's a web app)
+FROM mcr.microsoft.com/dotnet/aspnet:8.0
+
+# Set working directory
+WORKDIR /app
+
+# Copy published files into the container
+COPY . .
+
+# Expose port (optional, only for web apps)
+EXPOSE 80
+
+# Run the application
+ENTRYPOINT ["dotnet", "YourApp.dll"]
