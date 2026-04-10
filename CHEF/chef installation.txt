@@ -1,0 +1,256 @@
+prerequisite: Make IP address Static and dns 8.8.8.8
+
+1. Set Hostnames & Hosts File
+
+On MASTER:
+hostnamectl set-hostname chef-server
+
+On NODE:
+hostnamectl set-hostname node1
+
+Edit /etc/hosts on BOTH master and node
+<MASTER_IP>   chef-server
+<NODE_IP>     node1
+
+Example:
+
+192.168.180.138 chef-server.example.com chef-server
+192.168.180.135 node1
+
+
+2. Enable Firewall Ports (MASTER only)
+firewall-cmd --permanent --add-service=http
+firewall-cmd --permanent --add-service=https
+firewall-cmd --reload
+
+3. SSH Passwordless Setup
+On MASTER:
+ssh-keygen -t rsa -b 4096
+ssh-copy-id root@node1
+
+Test:
+ssh root@node1
+
+4. Install Required Utilities (Both Servers)
+Master:
+yum install -y wget curl net-tools git vim
+
+Node:
+yum install -y wget curl net-tools vim
+
+
+CHEF SERVER INSTALLATION (MASTER)
+5. Download Chef Server (EL7 package)
+cd /tmp
+
+wget https://packages.chef.io/files/stable/chef-server/14.14.1/el/7/chef-server-core-14.14.1-1.el7.x86_64.rpm
+
+rpm -Uvh chef-server-core-14.14.1-1.el7.x86_64.rpm
+
+6. Reconfigure Chef Server
+chef-server-ctl reconfigure
+
+
+Wait 5–10 minutes.
+
+
+7. Create Admin User
+
+chef-server-ctl user-create shahnawaz Shahnawaz Shaikh shahnawaz@example.com "root123" --filename shahnawaz.pem
+
+8. Create Organization
+chef-server-ctl org-create myorg "My Organization" --association_user shahnawaz --filename myorg-validator.pem
+
+
+9.Download Chef Workstation for Oracle Linux 7.9
+
+cd /tmp
+wget https://packages.chef.io/files/stable/chef-workstation/21.10.640/el/7/chef-workstation-21.10.640-1.el7.x86_64.rpm
+rpm -Uvh chef-workstation-21.10.640-1.el7.x86_64.rpm
+
+Verify:
+
+chef --version
+
+
+10. Create Chef Repository
+chef generate repo chef-repo
+cd chef-repo
+mkdir .chef
+
+11. Move PEM Keys into .chef
+mv /tmp/shahnawaz.pem chef-repo/.chef/
+mv /tmp/myorg-validator.pem chef-repo/.chef/
+
+
+12. Create knife.rb
+Create file:
+vim chef-repo/.chef/knife.rb
+
+Add content:
+
+current_dir = File.dirname(__FILE__)
+log_level                :info
+log_location             STDOUT
+node_name                "shahnawaz"
+client_key               "#{current_dir}/shahnawaz.pem"
+chef_server_url          "https://chef-server/organizations/myorg"
+cookbook_path 		 ["#{ENV['HOME']}/chef-repo/cookbooks"]
+ssl_verify_mode          :verify_none
+
+Save & exit.
+
+
+CHEF CLIENT INSTALL ON NODE
+13. Install Chef Client on NODE (NOTE: on production pin version chef client while installation)
+
+On node1:
+
+curl -L https://omnitruck.chef.io/install.sh | bash
+
+Check:
+
+chef-client --version
+
+
+
+BOOTSTRAP NODE FROM MASTER
+14. Bootstrap node1
+
+From MASTER (inside chef-repo):
+
+cd chef-repo
+knife bootstrap node1 -N node1 --ssh-user root --sudo     (NOTE: if ssl fails use this command "knife bootstrap node1 -N node1 --ssh-user root --sudo --node-ssl-verify-mode none" )
+
+Verify:
+
+knife node list
+knife client list
+
+
+CREATE TOMCAT COOKBOOK
+15. Create New Cookbook
+cd chef-repo/cookbooks
+chef generate cookbook tomcat_cookbook
+
+
+16. Install Java + Tomcat (Recipe)
+Edit default recipe:
+
+vim tomcat_cookbook/recipes/default.rb
+
+Add:
+
+---------------------------------------------------------------------------------------------------------------------------
+
+package 'java-1.8.0-openjdk' do
+  action :install
+end
+
+tomcat_version = '9.0.112'
+tomcat_url = "https://dlcdn.apache.org/tomcat/tomcat-9/v#{tomcat_version}/bin/apache-tomcat-#{tomcat_version}.tar.gz"
+
+remote_file "/tmp/apache-tomcat-#{tomcat_version}.tar.gz" do
+  source tomcat_url
+end
+
+bash 'extract_tomcat' do
+  code <<-EOH
+    mkdir -p /opt/tomcat
+    tar xzf /tmp/apache-tomcat-#{tomcat_version}.tar.gz -C /opt/tomcat --strip-components=1
+  EOH
+end
+
+bash 'permissions' do
+  code <<-EOH
+    chmod +x /opt/tomcat/bin/*.sh
+  EOH
+end
+
+template '/etc/systemd/system/tomcat.service' do
+  source 'tomcat.service.erb'
+end
+
+service 'tomcat' do
+  action [:enable, :start]
+end
+
+-------------------------------------------------------------------------------------------------------------------------------
+
+
+
+17. Create Template
+mkdir -p tomcat_cookbook/templates/default
+vim tomcat_cookbook/templates/default/tomcat.service.erb
+
+
+Paste:
+----------------------------------------------------
+[Unit]
+Description=Apache Tomcat
+After=network.target
+
+[Service]
+Type=forking
+ExecStart=/opt/tomcat/bin/startup.sh
+ExecStop=/opt/tomcat/bin/shutdown.sh
+User=root
+Group=root
+
+[Install]
+WantedBy=multi-user.target
+-----------------------------------------------------
+
+
+
+
+UPLOAD COOKBOOK
+18. Upload Cookbook
+cd ~/chef-repo
+knife cookbook upload tomcat_cookbook
+
+verify this using "knife cookbook list" command on master
+
+
+
+ASSIGN RUN LIST
+19. Add cookbook to node
+knife node run_list add node1 "recipe[tomcat_cookbook]"
+
+
+
+
+RUN CHEF ON NODE
+20. Execute Chef
+
+SSH into node1:
+
+chef-client
+
+
+
+
+
+VERIFY TOMCAT
+systemctl status tomcat
+ss -tulpn | grep 8080
+
+Open in browser:
+http://node1:8080
+
+
+
+to run it again :
+Remove Only the Tomcat Folder (Not Service)
+
+If you want to demonstrate Chef installing Tomcat fully again:
+
+rm -rf /opt/tomcat
+chef-client
+
+
+
+
+
+
+
